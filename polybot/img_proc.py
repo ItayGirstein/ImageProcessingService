@@ -1,5 +1,6 @@
 from pathlib import Path
 from matplotlib.image import imread, imsave
+import random
 
 
 def rgb2gray(rgb):
@@ -14,8 +15,12 @@ class Img:
         """
         Do not change the constructor implementation
         """
-        self.path = Path(path)
-        self.data = rgb2gray(imread(path)).tolist()
+        try:
+            self.path = Path(path)
+            self.data = rgb2gray(imread(path)).tolist()
+
+        except:
+            raise RuntimeError()
 
     def save_img(self):
         """
@@ -46,22 +51,42 @@ class Img:
         for i, row in enumerate(self.data):
             res = []
             for j in range(1, len(row)):
-                res.append(abs(row[j-1] - row[j]))
+                res.append(abs(row[j - 1] - row[j]))
 
             self.data[i] = res
 
     def rotate(self):
-        # TODO remove the `raise` below, and write your implementation
-        raise NotImplementedError()
+        height = len(self.data)
+        width = len(self.data[0])
+        result = []
+        for i in range(height):
+            temp_row = []
+            for j in range(width):
+                temp_row.append(self.data[i][j])
+            result.append(temp_row)
+        self.data = result
 
     def salt_n_pepper(self):
-        # TODO remove the `raise` below, and write your implementation
-        raise NotImplementedError()
+        height = len(self.data)
+        width = len(self.data[0])
+        for i in range(height):
+            for j in range(width):
+                rand = random.uniform(0, 1)
+                if rand < 0.2:
+                    self.data[i][j] = 255
+                elif rand > 0.8:
+                    self.data[i][j] = 0
 
     def concat(self, other_img, direction='horizontal'):
         # TODO remove the `raise` below, and write your implementation
         raise NotImplementedError()
 
     def segment(self):
-        # TODO remove the `raise` below, and write your implementation
-        raise NotImplementedError()
+        height = len(self.data)
+        width = len(self.data[0])
+        for i in range(height):
+            for j in range(width):
+                if j > 100:
+                    self.data[i][j] = 255
+                else:
+                    self.data[i][j] = 0
