@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, Mock
-from polybot.bot import ImageProcessingBot
+from polybot_v1.bot import ImageProcessingBot
 import os
 
 img_path = 'polybot/test/beatles.jpeg' if '/polybot/test' not in os.getcwd() else 'beatles.jpeg'

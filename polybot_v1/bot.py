@@ -3,6 +3,7 @@ from loguru import logger
 import os
 import time
 from telebot.types import InputFile
+from polybot_v1.img_proc import Img
 
 
 class Bot:
@@ -65,13 +66,42 @@ class Bot:
         self.send_text(msg['chat']['id'], f'Your original message: {msg["text"]}')
 
 
-class ObjectDetectionBot(Bot):
+class QuoteBot(Bot):
     def handle_message(self, msg):
         logger.info(f'Incoming message: {msg}')
 
-        if self.is_current_msg_photo(msg):
-            photo_path = self.download_user_photo(msg)
+        if msg["text"] != 'Please don\'t quote me':
+            self.send_text_with_quote(msg['chat']['id'], msg["text"], quoted_msg_id=msg["message_id"])
 
-            # TODO upload the photo to S3
-            # TODO send a request to the `yolo5` service for prediction
-            # TODO send results to the Telegram end-user
+
+class ImageProcessingBot(Bot):
+    def handle_message(self, msg):
+        cap_que = ['Blur', 'Contour', 'Rotate', 'Segment', 'Salt and pepper', 'Concat']
+        logger.info(f'Incoming message: {msg}')
+        if not self.is_current_msg_photo(msg):
+            self.send_text(msg['chat']['id'], "Hello there please send me a photo with one of the function below:")
+            self.send_text(msg['chat']['id'], f'{cap_que[0]}, {cap_que[1]}, {cap_que[2]}, {cap_que[3]}, {cap_que[4]}, {cap_que[5]} (currently not working)')
+        else:
+            if msg["caption"] in cap_que:
+                new_img = Img(self.download_user_photo(msg))
+                if msg["caption"] == cap_que[0]:
+                    new_img.blur()
+                    self.send_photo(msg['chat']['id'], new_img.save_img())
+                elif msg["caption"] == cap_que[1]:
+                    new_img.contour()
+                    self.send_photo(msg['chat']['id'], new_img.save_img())
+                elif msg["caption"] == cap_que[2]:
+                    new_img.rotate()
+                    self.send_photo(msg['chat']['id'], new_img.save_img())
+                elif msg["caption"] == cap_que[3]:
+                    new_img.segment()
+                    self.send_photo(msg['chat']['id'], new_img.save_img())
+                elif msg["caption"] == cap_que[4]:
+                    new_img.salt_n_pepper()
+                    self.send_photo(msg['chat']['id'], new_img.save_img())
+                elif msg["caption"] == cap_que[5]:
+                    new_img.concat()
+                    self.send_photo(msg['chat']['id'], new_img.save_img())
+                else:
+                    self.send_text(msg['chat']['id'], "Unknown function please try again")
+                

@@ -1,321 +1,197 @@
-# Image processing service
+# Object Detection Service
 
+**Due date**: 2023-09-20
 
-In this project, you develop an image processing service. 
-Clients send images to a Telegram chatbot, and choose a filter to apply:
+## Update I (2023-09-06)
 
-![](.img/demo.gif)
+In the `yolo5/Dockerfile` update the `curl` command as follows (the `-L` flag was added):
 
-# Guidelines
-
-## Create a new GitHub repo 
-
-Fork this repo, clone it locally and open it in your favorite IDE (PyCharm, VSCode). 
-You can change the `README.md` file content to provide relevant information about your project.
-
-
-## Intro to image processing
-
-Reference: https://ai.stanford.edu/~syyeung/cvweb/tutorial1.html
-
-### What is a digital image?
-
-
-If we take a closer look on a digital image, we will notice it comprised of individual pixels, 
-each pixel has its own value. For a grayscale image, each pixel would have an **intensity** value between 0 and 255, with 0 being black and 255 being white. 
-
-![](.img/pixel.gif)
-
-A grayscale image, then, can be represented as a matrix of pixel values:
-
-![](.img/imagematrix.png)
-
-A color image is just a simple extension of this. The colors are constructed from a combination of Red, Green, and Blue (RGB). Instead of one matrix of pixel values, we use 3 different matrix, one for the Red (R) values, one for Green (G), and one Blue (B) values. 
-
-<img src=".img/colorpixels.png" width="50%">
-
-As can be seen, each pixel of the image has three channels, represent the red, green, blue values. 
-
-Python-wise, a digital grayscale image is essentially a list of lists:
-
-![](.img/pythonimage.png)
-
-Each element in the `image` list is a list represented a **row** of pixels. 
-
-### Image filtering
-
-Filtered images are ubiquitous in our social media feeds, news articles, books—everywhere!
-Image filtering is a technique in image processing that involves modifying or enhancing an image by applying a filter to it.
-Filters can be used to remove noise, sharpen edges, blur or smooth the image, or highlight specific features or details, among other effects.
-
-Python-wise, image filtering is as simple as manipulate the pixel values. 
-
-## Implement image filters
-
-Under `polybot/img_proc.py`, the `Img` class is designed for image filtering on grayscale images.
-Here is a detailed usage instruction for the class:
-
-#### Creating an instance of `Img`
-
-Provide the path to the image file as a parameter when creating an instance of the `Img` class, for example:
-
-```python
-my_img = Img('path/to/image.jpg')
+```text
+- RUN curl https://github.com/ultralytics/yolov5/releases/download/v6.1/yolov5s.pt -o yolov5s.pt
++ RUN curl -L https://github.com/ultralytics/yolov5/releases/download/v6.1/yolov5s.pt -o yolov5s.pt
 ```
 
-#### Saving the modified image
+## Background
 
-After performing operations on the image, you can save the modified image using the `save_img()` method, for example:
+In this project, you'll design, develop and deploy an object detection service that consists of multiple containerized microservices. 
 
-```python
-my_img.save_img()
-```
+Users send images through an interactive Telegram bot (the bot you've implemented in the Python project), the service detects objects in the image and send the results to the user.
 
-This will save the modified grayscale image to a new path with an appended `_filtered` suffix, and uses the same file extension.
+The service consists of 3 microservices: 
 
-### Filters for you to implement
+- `polybot`: Telegram Bot container.
+- `yolo5`: Image prediction container based on the Yolo5 pre-train deep learning model.
+- `mongo`: MongoDB cluster to store data.
 
+## Preliminaries
 
-In this exercise you are required to implement **at least one** filter from the below list (`concat()`, `rotate()`, `salt_n_pepper()`, `segment()`).
-You have to implement the filter using **Python builtin functionality only**. Don't use external packages like numpy, Pillow, openVC, etc. 
+Create a dedicated GitHub repo for the project (or use the same GitHub repo from the previous Python project and utilize your Telegram bot implementation).
 
-On every error (e.g. image path doesn't exist, input image is not an RGB) you should raise a `RuntimeError` exception.
+## Implementation guidelines
 
+### The `mongo` microservice
 
-#### Concatenating images
+MongoDB is a [document](https://www.mongodb.com/document-databases), [NoSQL](https://www.mongodb.com/nosql-explained/nosql-vs-sql) database, offers high availability deployment using multiple replica sets.
+**High availability** (HA) indicates a system designed for durability and redundancy.
+A **replica set** is a group of MongoDB servers, called nodes, containing an identical copy of the data.
+If one of the servers fails, the other two will pick up the load while the crashed one restarts, without any data loss.
 
-The `concat()` method is meant to concatenate two images together horizontally (side by side).
+Follow the official docs to deploy containerized MongoDB cluster on your local machine. 
+Please note that the mongo deployment should be configured **to persist the data that was stored in it**.
 
+https://www.mongodb.com/compatibility/deploying-a-mongodb-cluster-with-docker
 
-Implementation instruction for horizontal concatenation:   
-- Check the dimensions of both images to ensure they are compatible for concatenation. If the dimensions are not compatible (e.g., different heights), raise a `RuntimeError` exception with informative message.
-- Combine the pixel values of both images to create a new image. For horizontal concatenation, combine each row of the first image with the corresponding row of the second image.
-- Store the resulting concatenated image in the `self.data` attribute of the instance. 
+Got HA mongo deployment? great, let's move on...
 
-```python
-my_img = Img('path/to/image.jpg')
-another_img = Img('path/to/image2.jpg')
-my_img.concat(another_img) 
-my_img.save_img()   # concatenated image was saved in 'path/to/image_filtered.jpg'
-```
+### The `yolo5` microservice
 
-Note: you can optionally use the `direction` argument to implement `vertical` concatenation as well.
+[Yolo5](https://github.com/ultralytics/yolov5) is a state-of-the-art object detection AI model. It is known for its high accuracy object detection in images and videos.
+You'll work with a lightweight model that can detect [80 objects](https://github.com/ultralytics/yolov5/blob/master/data/coco128.yaml) while running on your old, poor, CPU machine. 
 
-#### Adding "salt and pepper" noise to the image
+The service files are under the `docker_project/yolo5` directory. Copy these files to your repo.
 
-The `salt_n_pepper()` noise method applies a type of image distortion that randomly adds isolated pixels with value of either 255 (maximum white intensity) or 0 (minimum black intensity).
-The name "salt and pepper" reflects the appearance of these randomly scattered bright and dark pixels, resembling grains of salt and pepper sprinkled on an image.
+#### Develop the app
 
-Implementation instruction:   
- 1. Iterate over the pixels of the image by looping through each row and each pixel value.
- 2. For each pixel in the image:
-     - Randomly generate a number between 0 and 1.
-     - If the random number is less than 0.2, set the pixel value to the maximum intensity (255) to represent salt.
-     - If the random number is greater than 0.8, set the pixel value to the minimum intensity (0) to represent pepper.
-     - If neither condition is met (the random number is in between 0.2 to 0.8), keep the original pixel value without any modification.
+The `yolo5/app.py` app is a flask based webserver, with a single endpoint `/predict`, which can be used to predict objects in images.  
 
+To use this endpoint, you don't send the image directly in the HTTP request. Instead, you attach a query parameter called `imgName` to the URL (e.g. `localhost:8081/predict?imgName=street.jpeg`), which represents an image name stored in an **S3 bucket**. 
+The service downloads this image from the S3 bucket and detect objects in it. 
 
-```python
-my_img = Img('path/to/image.jpg')
-my_img.salt_n_pepper() 
-my_img.save_img()  # noisy image was saved in 'path/to/image_filtered.jpg'
-```
+Take a look on the code, and complete the `# TODO`s. Feel free to change/add any functionality as you wish!
 
-#### Rotating the image
+#### Build and run the app
 
-The `rotate()` method rotates an image around its center in a clockwise direction.
-    
-Implementation remarks:   
-The resulting rotated image will have its rows become the columns, and the columns will become the rows. The pixels in the rotated image will be repositioned based on a clockwise rotation around the center of the original image. For example, the first row in the original image will become the last column in the rotated image, the second row will become the second-to-last column, and so on.  
+The `yolo5` app can be running only as a Docker container. This is because the app depends on many files that don't exist on your local machine, but do exist in the [`ultralytics/yolov5`](https://hub.docker.com/r/ultralytics/yolov5) base image.
 
-```python
-my_img = Img('path/to/image.jpg')
-my_img.rotate() 
-my_img.rotate()  # rotate again for a 180 degrees rotation
-my_img.save_img()   # rotated image was saved in 'path/to/image_filtered.jpg'
-```
+Take a look at the provided `Dockerfile`, it's already implemented for you, no need to touch.
 
-#### Segmenting the image
+If you run the container on your local machine, you may need to **mount** (as a volume) the directory containing the AWS credentials on your local machine (`$HOME/.aws/credentials`) to allow the container communicate with S3.  
 
-The `segment()` method partitions the image into regions where the pixels have similar attributes, so the image is represented in a more simplified manner, and so we can then identify objects and boundaries more easily.
+**Note: Never build a docker image with AWS credentials stored in it! Never commit AWS credentials in your source code! Never!**
 
-Implementation instruction:   
- 1. Iterate over the pixels of the image by looping through each row and each pixel value.
- 2. All pixels with an intensity greater than 100 are replaced with a white pixel (intensity 255) and all others are replaced with a black pixel (intensity 0). 
-
-```python
-my_img = Img('path/to/image.jpg')
-my_img.segment() 
-my_img.save_img()
-```
-
-### Filters for inspiration
-
-The below two filters was already implemented, you can review these functions to get some inspiration of how might a filter implementation look like. 
-
-#### Blurring the image
-
-The `blur()` method is already implemented. You can control the blurring level `blur_level` argument (default is 16).
-   It blurs the image by replacing the value of each pixel by the average of the 16 pixels around him (or any other value, controlled by the `blur_level` argument. The bigger the value, the stronger the blurring level).
-
-```python
-my_img = Img('path/to/image.jpg')
-my_img.blur()   # or my_img.blur(blur_level=32) for stronger blurring effect
-my_img.save_img()
-```
-
-#### Creating a contour of the image
-
-The `contour()` method is already implemented. It applies a contour effect to the image by calculating the **differences between neighbor pixels** along each row of the image matrix.
-
-```python
-my_img = Img('path/to/image.jpg')
-my_img.contour() 
-my_img.save_img()
-```
-
-### Test your filters locally
-
-Under `polybot/test` you'll find unittests for each filter.
-
-For example, to execute the test suite for the `concat()` filter, run the below command from the root dir of your repo:
+Once the image was built and run successfully, you can communicate with it directly by:
 
 ```bash
-python -m polybot.test.test_concat
+curl -X POST localhost:8081/predict?imgName=street.jpeg
 ```
 
-An alternative way is to run tests from the Pycharm UI. 
+For example, here is an image and the corresponding results summary:
 
-## Create a Telegram Bot
+<img src="../.img/street.jpeg" width="60%">
 
-1. <a href="https://desktop.telegram.org/" target="_blank">Download</a> and install telegram desktop (you can use your phone app as well).
-2. Once installed, create your own Telegram Bot by following <a href="https://core.telegram.org/bots/features#botfather">this section</a> to create a bot. Once you have your telegram token you can move to the next step.
-
-**Never** commit your telegram token in Git repo, even if the repo is private.
-For now, we will provide the token as an environment variable to your chat app. 
-Later on in the course we will learn better approaches to store sensitive data.
-
-## Running the Telegram bot locally
-
-The Telegram app is a flask-based service that responsible for providing a chat-based interface for users to interact with your image processing functionality. 
-It utilizes the Telegram Bot API to receive user images and respond with processed images. 
-
-The code skeleton for the bot app is already given to you under `polybot/app.py`.
-In order to run the server, you have to [provide 2 environment variables](https://www.jetbrains.com/help/objc/add-environment-variables-and-program-arguments.html#add-environment-variables):
-
-1. `TELEGRAM_TOKEN` which is your bot token.
-2. `TELEGRAM_APP_URL` which is your app public URL provided by Ngrok (will be discussed soon).
-
-Implementing bot logic involves running a local Python script that listens for updates from Telegram servers.
-When a user sends a message to the bot, Telegram servers forward the message to the Python app using a method called **webhook** (**long-polling** and **websocket** are other possible methods which wouldn't be used in this project).
-The Python app processes the message, executes the desired logic, and may send a response back to Telegram servers, which then delivers the response to the user.
-
-The webhook method consists of simple two steps:
-
-Setting your chat app URL in Telegram Servers:
-
-![](.img/webhook1.png)
-
-Once the webhook URL is set, Telegram servers start sending HTTPS POST requests to the specified webhook URL whenever there are updates, such as new messages or events, for the bot. 
-
-![](.img/webhook2.png)
-
-
-You've probably noticed that setting `localhost` URL as the webhook for a Telegram bot can be problematic because Telegram servers need to access the webhook URL over the internet to send updates.
-As `localhost` is not accessible externally, Telegram servers won't be able to reach the webhook, and the bot won't receive any updates.
-
-[Ngrok](https://ngrok.com/) can solve this problem by creating a secure tunnel between the local machine (where the bot is running) and a public URL provided by Ngrok.
-It exposes the local server to the internet, allowing Telegram servers to reach the webhook URL and send updates to the bot.
-
-Sign-up for the Ngrok service (or any another tunneling service to your choice), then install the `ngrok` agent as [described here](https://ngrok.com/docs/getting-started/#step-2-install-the-ngrok-agent). 
-
-Authenticate your ngrok agent. You only have to do this once:
-
-```bash
-ngrok config add-authtoken <your-authtoken>
+```json
+{
+    "prediction_id": "9a95126c-f222-4c34-ada0-8686709f6432",
+    "original_img_path": "data/images/street.jpeg",
+    "predicted_img_path": "static/data/9a95126c-f222-4c34-ada0-8686709f6432/street.jpeg",
+    "labels": [
+      {
+        "class": "person",
+        "cx": 0.0770833,
+        "cy": 0.673675,
+        "height": 0.0603291,
+        "width": 0.0145833
+      },
+      {
+        "class": "traffic light",
+        "cx": 0.134375,
+        "cy": 0.577697,
+        "height": 0.0329068,
+        "width": 0.0104167
+      },
+      {
+        "class": "potted plant",
+        "cx": 0.984375,
+        "cy": 0.778793,
+        "height": 0.095064,
+        "width": 0.03125
+      },
+      {
+        "class": "stop sign",
+        "cx": 0.159896,
+        "cy": 0.481718,
+        "height": 0.0859232,
+        "width": 0.053125
+      },
+      {
+        "class": "car",
+        "cx": 0.130208,
+        "cy": 0.734918,
+        "height": 0.201097,
+        "width": 0.108333
+      },
+      {
+        "class": "bus",
+        "cx": 0.285417,
+        "cy": 0.675503,
+        "height": 0.140768,
+        "width": 0.0729167
+      }
+    ],
+    "time": 1692016473.2343626
+}
 ```
 
-Since the telegram bot service will be listening on port `8443`, start ngrok by running the following command:
+The model detected a _person_, _traffic light_, _potted plant_, _stop sign_, _car_, and a _bus_. Try it yourself with different images.
 
-```bash
-ngrok http 8443
-```
+### The `polybot` microservice
 
-Your bot public URL is the URL specified in the `Forwarding` line (e.g. `https://16ae-2a06-c701-4501-3a00-ecce-30e9-3e61-3069.ngrok-free.app`).
-Don't forget to set the `TELEGRAM_APP_URL` env var to your URL. 
+You can either integrate your bot implementation from the previous Python project, or use the code sample given to you under `docker_project/polybot` directory. 
 
-In the next step you'll finally run your bot app.
+In case you use the code sample, make sure you have Telegram bot token, and you know how to expose your bot using `ngrok` when running it locally.
 
-## Running a simple "echo" Bot - the `Bot` class
+In the sample code, under `bot.py` you'll find the class `ObjectDetectionBot` with a `handle_message()` method that handles incoming messages from end-users.
+When users send an image to the bot, you have to upload this image to S3 and perform an HTTP request to the `yolo5` service to predict the objects in this image.
 
-Under `polybot/bot.py` you are given a class called `Bot`. This class implements a simple telegram bot, as follows.
+Complete the `# TODO`s in `bot.py` to achieve this goal (or implement equivalent steps if you use your own bot implementation).
 
-The constructor `__init__` receives the `token` and `telegram_chat_url` arguments.
-The constructor creates an instance of the `TeleBot` object, which is a pythonic interface to Telegram API. You can use this instance to conveniently communicate with the Telegram servers.
-Later, the constructor sets the webhook URL to be the `telegram_chat_url`. 
+Here is an end-to-end example of how it may look like when all your microservices are running. Feel free to send the results to the user in any other form.
 
-The `polybot/app.py` is the main app entrypoint. It's nothing but a simple flask webserver that uses a `Bot` instance to handle incoming messages, caught in the `webhook` endpoint function.
+<img src="../.img/polysample.jpg" width="30%">
 
-The default behavior of the `Bot` class is to "echo" the incoming messages. Try it out!
+## Deploy the service in a single EC2 instance as a Docker Compose project
 
-## Extending the echo bot - the `QuoteBot` class
+Create a Docker Compose project in the `docker-compose.yaml` file to provision the service (all 3 microservices) in a single command (`docker compose up`).
+Deploy the compose project in a single EC2 instance located in a public subnet.
 
-In `bot.py` you are given a class called `QuoteBot` which **inherits** from `Bot`.
-Upon incoming messages, this bot echoing the message while quoting the original message, unless the user is asking politely not to quote.
+Deployment notes:
 
-In `app.py`, change the instantiated instance to the `QuoteBot`:
+- Don't configure your compose file to build the images. Instead, push the `yolo5` and `polybot` images to DockerHub or an [ECR](https://docs.aws.amazon.com/AmazonECR/latest/userguide/getting-started-console.html) repo and use these images. 
+- Attach an IAM role with the relevant permissions (e.g. read/write access to S3). Don't manage AWS credentials yourself, and never hard-code AWS credentials in the `docker-compose.yaml` file. 
+- Don't hard-code your telegram token in the compose file, this is a sensitive data. [Read here](https://docs.docker.com/compose/use-secrets/) how to provide your compose project this data in a safe way.  
+- Use `snyk` to clean your images from any HIGH and CRITICAL security vulnerabilities.
+
+#### Exposing the bot to Telegram server
+
+You can expose the polybot to Telegram servers by Ngrok, as done in the previous exercise (install and launch ngrok on the EC2 instance). 
+
+Alternatively, you can use the instance's **public IP address** as the registered bot app URL in Telegram servers.
+This requires some code changes in `polybot/app.py`.
+
+Since the IP address may be changed, you should retrieve the public IP dynamically when the app is launching. You can get the instance public IP **from within** the instance by:
 
 ```python
-- Bot(TELEGRAM_TOKEN, TELEGRAM_APP_URL)
-+ QuoteBot(TELEGRAM_TOKEN, TELEGRAM_APP_URL)
+import requests 
+
+# reference https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
+TELEGRAM_APP_URL = requests.get('http://169.254.169.254/latest/meta-data/public-ipv4').text
 ```
 
-Run this bot and check its behavior.
+In addition, your flask webserver should listen to HTTPS requests (Telegram doesn't accept unsecure HTTP communication).
+For that, you should generate **self-signed certificate**, and use it when running the flask, as well as setting the webhook in Telegram. 
 
-## Build your image processing bot - the `ImageProcessingBot` class
-
-In `bot.py` you are given a class called `ImageProcessingBot` which **inherits** from `Bot`, again.
-Upon incoming **photo messages**, this bot downloads the photos and processes them according to the **`caption`** field provided with the message.
-The bot will then send the processed image to the user.
-
-A few notes:
-
-- Inside the `ImageProcessingBot` class, override `handle_message` method and implement the needed functionality.
-- Remember that by inheriting the `Bot` class, you can use all of its methods (such as `send_text`, `download_user_photo`, `send_photo`...). 
-- Possible `caption` values are: `['Blur', 'Contour', 'Rotate', 'Segment', 'Salt and pepper', 'Concat']`.
-
-**Note**: Your bot should support the `Blur` and `Contour` filters (those filters have already implemented for you). 
-
-Test your bot on real photos and make sure it's functioning properly.
-
-## Test your bot locally
-
-You can test your bot logic locally by:
-
-```bash
-python -m polybot.test.test_telegram_bot
-```
-
-Or via the Pycharm UI. 
+Here is a simple working example:    
+https://github.com/eternnoir/pyTelegramBotAPI/blob/master/examples/webhook_examples/webhook_flask_echo_bot.py
 
 
-## Extend your bot functionality
+## Submission
 
-Add any functionality you wish to your bot...
+You have to present your work to the course staff, in a **10 minutes demo**. Your presentations would be evaluated according to the below list, in order of priority:
 
-- Greet the user.
-- Add some informative message when user sends photos without captions or with invalid caption value.
-- Add your own filters.
-- Extend the functionality of the filters, e.g. allow users to specify "Rotate 2" to rotate the image twice).
-
-**Go wild!!!** 
-
-
-## Submission 
-
-
-You don't need to send anything as we already have access to your fork (make sure your forked repo is public).
-You will be graded by the automated tests running in GitHub action **in your fork**, make sure you pass them.
+1. Showcasing a live, working demo of your work. Both locally and in the cloud.
+2. Demonstrating deep understanding of the system.
+3. Applying best practices and clean work.
+4. Successful integration of a new feature, idea, or extension. Be creative!
 
 
 ## Good luck
