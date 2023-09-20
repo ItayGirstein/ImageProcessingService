@@ -10,6 +10,7 @@ import boto3
 import pymongo
 
 images_bucket = os.environ['BUCKET_NAME']
+s3 = boto3.client('s3')
 
 with open("data/coco128.yaml", "r") as stream:
     names = yaml.safe_load(stream)['names']
@@ -30,10 +31,9 @@ def predict():
 
     # TODO download img_name from S3, store the local image path in original_img_path
     #  The bucket name should be provided as an env var BUCKET_NAME.
-    s3 = boto3.client('s3')
     original_img_path = img_name
     try:
-        s3.download_file(original_img_path, images_bucket, img_name)
+        s3.download_file(images_bucket, img_name, original_img_path)
     except Exception as e:
         print(f'Error: {e}')
 
@@ -84,13 +84,14 @@ def predict():
         }
 
         # TODO store the prediction_summary in MongoDB
-        client = pymongo.MongoClient("mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=myReplicaset")
-        db_name = "itay_db"
-        db = client[db_name]
+        client = pymongo.MongoClient("mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=myReplicaSet")
+        db = client["itay_db"]
         collection = db["images"]
-        collection.insert_one(prediction_summary)
+        r = collection.insert_one(prediction_summary)
         client.close()
+        logger.info(f'MongoDB: {r.inserted_id}')
 
+        prediction_summary['predicted_img_path'] = predicted_img_path
         return prediction_summary
     else:
         return f'prediction: {prediction_id}/{original_img_path}. prediction result not found', 404
@@ -98,4 +99,4 @@ def predict():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8081)
-    # docker run -it --rm -p 8081:8081 -e BUCKET_NAME='itay9413-bucket' -v $HOME/.aws/credentials --name 'itay_con' --network mongoCluster 'my-yolo-app:latest'
+    # docker run -it --rm -p 8081:8081 -e BUCKET_NAME='itay9413-bucket' -v $HOME/.aws/credentials:/root/.aws/credentials:ro --name 'itay_con' --network mongoCluster 'my-yolo-app:latest'

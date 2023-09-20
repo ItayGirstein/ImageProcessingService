@@ -8,7 +8,7 @@ import requests
 import json
 
 BUCKET_NAME = os.environ['BUCKET_NAME']
-
+s3 = boto3.client("s3")
 
 class Bot:
 
@@ -78,19 +78,18 @@ class ObjectDetectionBot(Bot):
             photo_path = self.download_user_photo(msg)
 
             # TODO upload the photo to S3
-            s3 = boto3.client("s3")
             img_name = os.path.basename(photo_path).split('/')[-1]
             try:
                 s3.upload_file(photo_path, BUCKET_NAME, img_name)
             except Exception as e:
                 print(f'Error: {e}')
             # TODO send a request to the `yolo5` service for prediction
-            url = "localhost:8081/"
+            url = "http://127.0.0.1:8081/predict"
             args = {'imgName': img_name}
             r = requests.post(url=url, params=args)
             # TODO send results to the Telegram end-user
             if r.status_code == 200:
-                predict = json.loads(r.json())
+                predict = json.loads(r.text)
                 labels = predict['labels']
                 objects = {}
                 for d in labels:
@@ -101,4 +100,4 @@ class ObjectDetectionBot(Bot):
                         objects[clas] += 1
 
             else:
-                self.send_text(msg['chat']['id'], "Unknown function please try again")
+                self.send_text(msg['chat']['id'], "Exited with status code: " + str(r.status_code))
