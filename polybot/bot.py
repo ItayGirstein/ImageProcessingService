@@ -4,6 +4,10 @@ import os
 import time
 from telebot.types import InputFile
 import boto3
+import requests
+import json
+
+BUCKET_NAME = os.environ['BUCKET_NAME']
 
 
 class Bot:
@@ -75,9 +79,26 @@ class ObjectDetectionBot(Bot):
 
             # TODO upload the photo to S3
             s3 = boto3.client("s3")
+            img_name = os.path.basename(photo_path).split('/')[-1]
             try:
-                s3.upload_file(photo_path, BUCKET_NAME, os.path.basename(photo_path).split('/')[-1])
+                s3.upload_file(photo_path, BUCKET_NAME, img_name)
             except Exception as e:
                 print(f'Error: {e}')
             # TODO send a request to the `yolo5` service for prediction
+            url = "localhost:8081/"
+            args = {'imgName': img_name}
+            r = requests.post(url=url, params=args)
             # TODO send results to the Telegram end-user
+            if r.status_code == 200:
+                predict = json.loads(r.json())
+                labels = predict['labels']
+                objects = {}
+                for d in labels:
+                    clas = d['class']
+                    if clas not in objects:
+                        objects[clas] = 1
+                    else:
+                        objects[clas] += 1
+
+            else:
+                self.send_text(msg['chat']['id'], "Unknown function please try again")

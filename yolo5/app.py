@@ -31,7 +31,7 @@ def predict():
     # TODO download img_name from S3, store the local image path in original_img_path
     #  The bucket name should be provided as an env var BUCKET_NAME.
     s3 = boto3.client('s3')
-    original_img_path = "photos/" + img_name
+    original_img_path = img_name
     try:
         s3.download_file(original_img_path, images_bucket, img_name)
     except Exception as e:
@@ -98,3 +98,4 @@ def predict():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8081)
+    # docker run -it --rm -p 8081:8081 -e BUCKET_NAME='itay9413-bucket' -v $HOME/.aws/credentials --name 'itay_con' --network mongoCluster 'my-yolo-app:latest'

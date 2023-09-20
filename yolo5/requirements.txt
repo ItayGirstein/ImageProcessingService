@@ -1,8 +1,7 @@
 flask
 pyyaml
 loguru
-
-# testing
-
+boto3
+pymongo
 pylint
 pytest
