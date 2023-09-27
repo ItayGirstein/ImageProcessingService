@@ -10,6 +10,7 @@ import json
 BUCKET_NAME = os.environ['BUCKET_NAME']
 s3 = boto3.client("s3")
 
+
 class Bot:
 
     def __init__(self, token, telegram_chat_url):
@@ -84,7 +85,7 @@ class ObjectDetectionBot(Bot):
             except Exception as e:
                 print(f'Error: {e}')
             # TODO send a request to the `yolo5` service for prediction
-            url = "http://127.0.0.1:8081/predict"
+            url = "http://yolo_con:8081/predict"
             args = {'imgName': img_name}
             r = requests.post(url=url, params=args)
             # TODO send results to the Telegram end-user
@@ -92,12 +93,17 @@ class ObjectDetectionBot(Bot):
                 predict = json.loads(r.text)
                 labels = predict['labels']
                 objects = {}
+                data = ''
                 for d in labels:
                     clas = d['class']
                     if clas not in objects:
                         objects[clas] = 1
                     else:
                         objects[clas] += 1
+                for clas, times in objects.items():
+                    data = data + '\n' + clas + ': ' + str(times)
+
+                self.send_text(msg['chat']['id'], "Detected objects:" + data)
 
             else:
                 self.send_text(msg['chat']['id'], "Exited with status code: " + str(r.status_code))

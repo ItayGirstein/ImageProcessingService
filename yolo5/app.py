@@ -8,6 +8,7 @@ from loguru import logger
 import os
 import boto3
 import pymongo
+import json
 
 images_bucket = os.environ['BUCKET_NAME']
 s3 = boto3.client('s3')
@@ -90,8 +91,8 @@ def predict():
         r = collection.insert_one(prediction_summary)
         client.close()
         logger.info(f'MongoDB: {r.inserted_id}')
+        prediction_summary.pop('_id')
 
-        prediction_summary['predicted_img_path'] = predicted_img_path
         return prediction_summary
     else:
         return f'prediction: {prediction_id}/{original_img_path}. prediction result not found', 404
@@ -99,4 +100,4 @@ def predict():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8081)
-    # docker run -it --rm -p 8081:8081 -e BUCKET_NAME='itay9413-bucket' -v $HOME/.aws/credentials:/root/.aws/credentials:ro --name 'itay_con' --network mongoCluster 'my-yolo-app:latest'
+    # docker run -it --rm -p 8081:8081 -e BUCKET_NAME='itay9413-bucket' -v $HOME/.aws/credentials:/root/.aws/credentials:ro --name 'yolo_con' --network mongoCluster 'my-yolo-app:latest'
