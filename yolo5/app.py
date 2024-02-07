@@ -8,7 +8,6 @@ from loguru import logger
 import os
 import boto3
 import pymongo
-import json
 
 images_bucket = os.environ['BUCKET_NAME']
 s3 = boto3.client('s3')
@@ -35,6 +34,7 @@ def predict():
     original_img_path = img_name
     try:
         s3.download_file(images_bucket, img_name, original_img_path)
+        time.sleep(3)
     except Exception as e:
         print(f'Error: {e}')
 

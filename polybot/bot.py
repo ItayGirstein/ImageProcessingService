@@ -107,3 +107,5 @@ class ObjectDetectionBot(Bot):
 
             else:
                 self.send_text(msg['chat']['id'], "Exited with status code: " + str(r.status_code))
+        else:
+            self.send_text(msg['chat']['id'], "I'm waiting for an image...")

@@ -31,15 +31,7 @@ services:
     container_name: mongo1
     ports:
       - "27017:27017"
-    command: >
-      sh -c "mongod --replSet myReplicaSet --bind_ip localhost,mongo1 && sleep 10 && mongo --eval 'rs.initiate({
-        _id: \"myReplicaSet\",
-        members: [
-          {_id: 0, host: \"mongo1\"},
-          {_id: 1, host: \"mongo2\"},
-          {_id: 2, host: \"mongo3\"}
-        ]
-      })'"
+    command: mongod --replSet myReplicaSet --bind_ip_all
     networks:
       - mongoCluster
 
@@ -48,7 +40,7 @@ services:
     container_name: mongo2
     ports:
       - "27018:27017"
-    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo2
+    command: mongod --replSet myReplicaSet --bind_ip_all
     networks:
       - mongoCluster
 
@@ -57,9 +49,10 @@ services:
     container_name: mongo3
     ports:
       - "27019:27017"
-    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo3
+    command: mongod --replSet myReplicaSet --bind_ip_all
     networks:
       - mongoCluster
 
 networks:
   mongoCluster:
+    driver: bridge
